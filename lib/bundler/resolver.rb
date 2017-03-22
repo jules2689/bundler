@@ -181,6 +181,13 @@ module Bundler
       resolver = new(index, source_requirements, base, gem_version_promoter, additional_base_requirements, platforms)
       result = resolver.start(requirements)
       SpecSet.new(result)
+    rescue => e
+      # Errors that happen here could very likely be caused by broken gemspec files
+      # We lazily validate gemspecs after the fact instead of on load to avoid negatively
+      # impacting performance on boot. This will override any errors and suggest fixing that spec.
+      # If all specs are valid, then re-raise the original error
+      gem_version_promoter.locked_specs.each { |spec| Bundler.rubygems.validate(spec.__materialize__) }
+      raise e
     end
 
     def initialize(index, source_requirements, base, gem_version_promoter, additional_base_requirements, platforms)
